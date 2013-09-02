@@ -27,6 +27,7 @@ class PageNavigator(threading.Thread):
     """
     FETCH_SLEEP_INTERVAL = 1
     FETCH_SLEEP_INTERVAL_LONG = 5
+    FETCH_RETRY_COUNT = 3
 
     def __init__(self, queue, baseUri, destination):
         """
@@ -41,6 +42,7 @@ class PageNavigator(threading.Thread):
         self._pages = []
         self._slept = True
         self._stopped = False
+        self._retried = 0
 
     def run(self):
         """
@@ -92,18 +94,25 @@ class PageNavigator(threading.Thread):
             for field in fields:
                 result[field] = self._parser[field]
             self._slept = False
+            self._retried = 0
             return result
-        except Html.EHTMLParserException:
-            # TODO: Logging class ore something like that
-            print('Oops, banned, sleeping some more')
+        except Html.TemporaryBanException as e:
+            print(str(e))
             time.sleep(self.FETCH_SLEEP_INTERVAL_LONG)
             self._slept = True
-            # TODO: Infinite recursion can occur. Limit retries or handle various parse errors
-            return self._fetchContent(uri, fields)
+        except Html.EHTMLParserException as e:
+            # TODO: Logging class ore something like that
+            self._retried += 1
+            print('%s, retry #%d' % (str(e), self._retried))
+            if self._retried == self.FETCH_RETRY_COUNT:
+                raise e
+        return self._fetchContent(uri, fields)
 
 
 class ImageDownloader(threading.Thread):
-
+    """
+    Image downloader thread
+    """
     def __init__(self, queue, number=0):
         """
         Initialize image download worker thread

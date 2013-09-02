@@ -49,6 +49,7 @@ class Client:
     def get(self, uri):
         """
         Get content of page
+        @param uri Request uri
         """
         self.sendRequest(uri)
         content = b''
@@ -62,6 +63,7 @@ class Client:
     def sendRequest(self, uri):
         """
         Send prepared request to a server
+        @param uri Request uri
         """
         try:
             # TODO: Timeout!
@@ -74,6 +76,7 @@ class Client:
     def getChunk(self, size=HTTP_CLIENT_CHUNK_SIZE):
         """
         Get next chunk of response data
+        @param size Chunk size to fetch at once
         """
         chunk = None
         if not self._response.closed:
