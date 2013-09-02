@@ -1,3 +1,5 @@
+# -*- coding: UTF-8
+
 __author__ = 'kz'
 
 __all__ = ['EHTMLParser', 'EHTMLParserException']
@@ -11,9 +13,9 @@ class EHTMLParserException(Exception):
     """
     Parsing exception
     """
-    MESSAGE_PAGES = 'Unable to fetch pages. The server answered:{0}'
-    MESSAGE_SUBPAGES = 'Unable to fetch subpages. The server answered:{0}'
-    MESSAGE_IMAGE = 'Unable to parse image page. The server answered:{0}'
+    MESSAGE_PAGES = 'Unable to fetch pages. The server answered: {0}'
+    MESSAGE_SUBPAGES = 'Unable to fetch subpages. The server answered: {0}'
+    MESSAGE_IMAGE = 'Unable to parse image page. The server answered: {0}'
 
 
 class TemporaryBanException(EHTMLParserException):
@@ -39,9 +41,10 @@ class EHTMLParser():
         """
         Raise parser exception
         """
-        message = re.sub('<[^<]+?>', '', self.content)
-        message = re.sub('[\r\n\t\s\0]+', ' ', message)
-        message = HTMLParser().unescape(message)
+        message = re.sub('[\r\n\t\s\0]+', ' ', self.content)
+        message = re.sub('<head>.*?</head>', '', message)
+        message = re.sub('<[^<]+?>', '', message)
+        message = HTMLParser().unescape(message).strip()
         temporaryBan = False  # TODO: Define
         if temporaryBan:
             raise TemporaryBanException(TemporaryBanException.MESSAGE_TEMPORARY_BAN)

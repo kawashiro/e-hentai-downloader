@@ -1,6 +1,14 @@
+# -*- coding: UTF-8
+
 __author__ = 'kz'
 
-__all__ = ['ImageDownloader', 'PageNavigator', 'ThreadTerminatedException']
+__all__ = ['ImageDownloader', 'PageNavigator', 'ThreadTerminatedException', 'FETCH_SLEEP_INTERVAL',
+           'FETCH_SLEEP_INTERVAL_LONG', 'FETCH_RETRY_COUNT', 'IMAGE_WORKER_THREADS_COUNT']
+
+FETCH_SLEEP_INTERVAL = 1
+FETCH_SLEEP_INTERVAL_LONG = 5
+FETCH_RETRY_COUNT = 3
+IMAGE_WORKER_THREADS_COUNT = 5
 
 import time
 import threading
@@ -25,10 +33,6 @@ class PageNavigator(threading.Thread):
     """
     Class which represents collecting direct links to images
     """
-    FETCH_SLEEP_INTERVAL = 1
-    FETCH_SLEEP_INTERVAL_LONG = 5
-    FETCH_RETRY_COUNT = 3
-
     def __init__(self, queue, baseUri, destination):
         """
         Initialize thread
@@ -72,7 +76,7 @@ class PageNavigator(threading.Thread):
             pass
         except BaseException as e:
             error = Environment.ErrorInfo(self._name, e)
-            Environment.Environment().setError(error)
+            Environment.Application().setError(error)
 
     def stop(self):
         """
@@ -88,7 +92,7 @@ class PageNavigator(threading.Thread):
             raise ThreadTerminatedException
         try:
             if not self._slept:
-                time.sleep(self.FETCH_SLEEP_INTERVAL)
+                time.sleep(FETCH_SLEEP_INTERVAL)
             result = {}
             self._parser.content = self._httpClient.get(uri)
             for field in fields:
@@ -98,13 +102,14 @@ class PageNavigator(threading.Thread):
             return result
         except Html.TemporaryBanException as e:
             print(str(e))
-            time.sleep(self.FETCH_SLEEP_INTERVAL_LONG)
+            time.sleep(FETCH_SLEEP_INTERVAL_LONG)
             self._slept = True
         except Html.EHTMLParserException as e:
             # TODO: Logging class ore something like that
             self._retried += 1
+            self._slept = False
             print('%s, retry #%d' % (str(e), self._retried))
-            if self._retried == self.FETCH_RETRY_COUNT:
+            if self._retried == FETCH_RETRY_COUNT:
                 raise e
         return self._fetchContent(uri, fields)
 
@@ -145,5 +150,5 @@ class ImageDownloader(threading.Thread):
                 self._queue.task_done()
             except BaseException as e:
                 error = Environment.ErrorInfo(self._name, e)
-                Environment.Environment().setError(error)
+                Environment.Application().setError(error)
                 break

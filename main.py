@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8
+
 __author__ = 'kz'
 
 import sys
 import queue
-from EHentaiDownloader import EHThread, Environment
+from EHentaiDownloader import Environment, EHThread
 
 
 def main():
@@ -12,18 +14,19 @@ def main():
 
     """
     try:
-        Environment.Environment()  # Initialize environment
+        app = Environment.Application()  # Initialize environment
+        app.init()
         imagesQueue = queue.Queue()
-        for i in range(5):
+        # TODO: Move threads initialization in some Environment.Application() method
+        for i in range(app['threads']):
             downloader = EHThread.ImageDownloader(imagesQueue, i)
             downloader.daemon = True
             downloader.start()
-            #NavigatorThread = PageNavigator.PageNavigator(imagesQueue, '/g/623156/fea2d2ec61/', '/home/kz/pyeghd_test/img_')
-        NavigatorThread = EHThread.PageNavigator(imagesQueue, '/g/594711/bb126bd78a/', '/home/kz/pyeghd_test/img_')
+        NavigatorThread = EHThread.PageNavigator(imagesQueue, app['uri'], app['destination'])
         NavigatorThread.start()
         while True:
             try:
-                error = Environment.Environment().error
+                error = Environment.Application().error
             except queue.Empty:
                 pass
             else:
