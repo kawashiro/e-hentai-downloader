@@ -2,8 +2,6 @@
 
 __author__ = 'kz'
 
-__all__ = ['EHTMLParser', 'EHTMLParserException']
-
 import re
 from html.parser import HTMLParser
 from EHentaiDownloader import Http
@@ -61,7 +59,9 @@ class EHTMLParser():
             lastPage = re.findall('sp\((\d+)\)', paginator)[-1]
             pages = list(self._subpageUri.format(i) for i in range(1, int(lastPage) + 1))
         except IndexError:
-            self._raiseParserException(EHTMLParserException.MESSAGE_SUBPAGES)
+            # FIXME: Fails on galleries with one subpage
+            # self._raiseParserException(EHTMLParserException.MESSAGE_SUBPAGES)
+            pass
         return pages
 
     def _getPages(self):
@@ -81,12 +81,13 @@ class EHTMLParser():
         """
         try:
             parser = HTMLParser()
-            match = re.search('<img id="img" src="http://(?P<host>[^"/:]+)(:(?P<port>\d+))?(?P<uri>[^"]*)"',
+            match = re.search('<img id="img" src="(?P<full>http://(?P<host>[^"/:]+)(:(?P<port>\d+))?(?P<uri>[^"]*))"',
                               self.content)
             return {
                 'host': match.group('host'),
                 'port': match.group('port'),
                 'uri':  parser.unescape(match.group('uri')),
+                'full_uri':  parser.unescape(match.group('full')),
             }
         except AttributeError:
             self._raiseParserException(EHTMLParserException.MESSAGE_IMAGE)

@@ -2,9 +2,6 @@
 
 __author__ = 'kz'
 
-__all__ = ['Client', 'ReadResponseException', 'E_HENTAI_GALLERY_HOST',
-           'HTTP_CLIENT_CHUNK_SIZE', 'HTTP_SCHEME', 'USER_AGENT']
-
 from http import client
 
 # TODO: Move some crap in config
