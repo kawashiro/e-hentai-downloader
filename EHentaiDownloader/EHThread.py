@@ -9,6 +9,7 @@ IMAGE_WORKER_THREADS_COUNT = 5
 
 import time
 import threading
+import os
 from EHentaiDownloader import Html, Http
 
 
@@ -59,17 +60,25 @@ class PageNavigator(threading.Thread):
             while self._subpages:
                 subpage = self._subpages.pop(0)
                 Environment.Log('Fetching subpage %s' % subpage, Environment.LOG_LEVEL_DEBUG)
-                fetchFields = ('pages', 'subpages') if firstIteration else ('pages',)
+                fetchFields = ('pages', 'subpages', 'meta') if firstIteration else ('pages',)
                 result = self._fetchContent(subpage, fetchFields)
                 if firstIteration:
-                    # TODO: Total pages, can be parsed from main page, write other meta info
+                    meta = result['meta']
+                    Environment.Log('Title: {0[main]} / {0[jap]}'.format(meta['title']), Environment.LOG_LEVEL_INFO)
+                    for k in meta['additional'].keys():
+                        Environment.Log('{0:.<20}...{1}'.format(k, meta['additional'][k]), Environment.LOG_LEVEL_INFO)
                     self._subpages = result['subpages']
+                    # FIXME: Feels like a shit -_-
+                    self._destination = '/'.join((self._destination, meta['title']['main'])).replace('//', '/')
+                    os.mkdir(self._destination)
+                    Environment.Application()['destination'] = self._destination
+                    Environment.Application()['total_images'] = meta['count']
                     Environment.Log('Found subpages: %s' % repr(self._subpages), Environment.LOG_LEVEL_DEBUG)
                 Environment.Log('Found pages: %s' % repr(result['pages']), Environment.LOG_LEVEL_DEBUG)
                 self._pages += result['pages']
                 while self._pages:
                     page = self._pages.pop(0)
-                    Environment.Log('Fetching page #%d; URI %s' % (pageNumber, page), Environment.LOG_LEVEL_DEBUG)
+                    Environment.Log('Fetching page # %d; URI %s' % (pageNumber, page), Environment.LOG_LEVEL_DEBUG)
                     image = self._fetchContent(page, ('image',))['image']
                     Environment.Log('Found image %s, adding to queue' % image, Environment.LOG_LEVEL_DEBUG)
                     image['number'] = pageNumber
@@ -122,7 +131,7 @@ class PageNavigator(threading.Thread):
         except Html.EHTMLParserException as e:
             self._retried += 1
             self._slept = False
-            Environment.Log('%s, retry #%d' % (str(e), self._retried), Environment.LOG_LEVEL_WARN)
+            Environment.Log('%s, retry # %d' % (str(e), self._retried), Environment.LOG_LEVEL_WARN)
             if self._retried == Environment.Application()['retries']:
                 raise e
         return self._fetchContent(uri, fields)
@@ -149,13 +158,19 @@ class ImageDownloader(threading.Thread):
         while True:
             try:
                 imageInfo = self._queue.get()
-                Environment.Log('Downloading image #%d' % imageInfo['number'], Environment.LOG_LEVEL_INFO)
+                totalImages = Environment.Application()['total_images']
+                Environment.Log('Downloading image #%d/%d' % (imageInfo['number'], totalImages),
+                                Environment.LOG_LEVEL_INFO, True)
                 Environment.Log('from: %s; to: %s' % (imageInfo['full_uri'], imageInfo['destination']),
                                 Environment.LOG_LEVEL_DEBUG)
                 httpClient = Http.Client(imageInfo['host'], imageInfo['port'])
-                file = open(imageInfo['destination'] + str(imageInfo['number']), 'wb')
                 try:
                     httpClient.sendRequest(imageInfo['uri'])
+                    contentType = httpClient.getHeader('Content-type')
+                    extension = self._getExtensionFromContentType(contentType)
+                    fileName = '{image[destination]}/{image[number]:0={padding}}.{ext}'.format(
+                        image=imageInfo, ext=extension, padding=str(totalImages).__len__())
+                    file = open(fileName, 'wb')
                     while True:
                         file.write(httpClient.getChunk())
                 except Http.ReadResponseException:
@@ -168,3 +183,11 @@ class ImageDownloader(threading.Thread):
                 error = Environment.ErrorInfo(self._name, e)
                 Environment.Application().setError(error)
                 break
+
+    def _getExtensionFromContentType(self, contentType):
+        """
+        Try to get file extension according to content-type
+        This crap is some kind of suitable for images only,
+        but we don't need anything more
+        """
+        return contentType.split('/')[1].lower().replace('jpeg', 'jpg')

@@ -3,6 +3,7 @@
 __author__ = 'kz'
 
 import sys
+import subprocess
 import queue
 import argparse
 from EHentaiDownloader import EHThread, Http
@@ -10,9 +11,8 @@ from EHentaiDownloader import EHThread, Http
 LOG_LEVEL_NONE = 0
 LOG_LEVEL_ERR = 1
 LOG_LEVEL_WARN = 2
-LOG_LEVEL_INTERACTIVE = 3
-LOG_LEVEL_INFO = 4
-LOG_LEVEL_DEBUG = 5
+LOG_LEVEL_INFO = 3
+LOG_LEVEL_DEBUG = 4
 
 
 def singleton(cls):
@@ -30,6 +30,13 @@ def singleton(cls):
             instances[cls] = cls()
         return instances[cls]
     return getInstance
+
+
+class InvalidArgumentException(Exception):
+    """
+    Exception on wrong input parameters
+    """
+    pass
 
 
 @singleton
@@ -56,7 +63,7 @@ class Application:
                             metavar='link',
                             help='Link to gallery main page'),
         parser.add_argument('destination',
-                            metavar='path',
+                            metavar='save_path',
                             help='Path to save downloaded gallery to'),
         parser.add_argument('-a', '--user-agent',
                             metavar='User agent',
@@ -70,25 +77,47 @@ class Application:
                             metavar='count',
                             help='Retries count on download fail, default 3',
                             default=EHThread.FETCH_RETRY_COUNT)
-        parser.add_argument('-l', '--log-level', type=int,
-                            metavar='0..4',
-                            help='0 - quiet, 1 - fatal errors only,\
-                                  2 - warnings, 3 - info messages, 4 - debug',
-                            default=LOG_LEVEL_INTERACTIVE)
+        parser.add_argument('-l', '--log-level',
+                            metavar='level',
+                            help='none, err, warn, info, debug',
+                            default='info')
         args = parser.parse_args()
-        self._storage = {
-            'user_agent':  args.user_agent,
-            'threads':     args.threads,
-            'uri':         args.url.replace('http://g.e-hentai.org', ''),  # TODO: Constants
-            'destination': args.destination,
-            'log_level':   args.log_level,
-            'retries':     args.retries
-        }
+        try:
+            self._storage = {
+                'user_agent':  args.user_agent,
+                'threads':     args.threads,
+                'uri':         self._defineUri(args.url),
+                'destination': args.destination,
+                'log_level':   self._defineLogLevel(args.log_level),
+                'retries':     args.retries,
+                'full_uri':    args.url
+            }
+        except ValueError:
+            parser.print_usage()
+            raise InvalidArgumentException
+
+    def _defineLogLevel(self, val):
+        """
+        Get log level from input string
+        """
+        return ['none', 'err', 'warn', 'info', 'debug'].index(val.lower())
+
+    def _defineUri(self, uri):
+        """
+        Cut host from uri
+        """
+        host = Http.HTTP_SCHEME + Http.E_HENTAI_GALLERY_HOST
+        if uri.find(host) == -1:
+            raise ValueError
+        return uri.replace(host, '')
 
     def run(self):
         """
         Run application
         """
+        Log('Source:      %s' % self['full_uri'], LOG_LEVEL_INFO)
+        Log('Destination: %s' % self['destination'], LOG_LEVEL_INFO)
+        Log('Fetching gallery info...', LOG_LEVEL_INFO)
         imagesQueue = queue.Queue()
         for i in range(self['threads']):
             downloader = EHThread.ImageDownloader(imagesQueue, i)
@@ -106,6 +135,27 @@ class Application:
                 navigatorThread.stop()
                 navigatorThread.join()
                 raise EHThread.CommonException('Error in thread %s: %s' % (error.thread, str(error.exception)))
+        self._zip()
+        Log('Completed successfully', LOG_LEVEL_INFO)
+
+    def _zip(self):
+        """
+        Create zip archive
+        """
+        zipfile = '%s.zip' % self['destination']
+        cmds = [
+            ['zip', '-r', zipfile, self['destination']],
+            ['rm',  '-r', self['destination']]
+        ]
+        Log('Creating ZIP-archive: %s' % zipfile, LOG_LEVEL_INFO)
+        for cmd in cmds:
+            try:
+                ret = subprocess.check_output(cmd)
+            except subprocess.CalledProcessError as e:
+                ret = e.output
+                raise e
+            finally:
+                Log('Command returned: %s' % ret.decode(), LOG_LEVEL_DEBUG)
 
     def __setitem__(self, key, value):
         """
@@ -158,15 +208,21 @@ class ErrorInfo:
         self.exception = exception
 
 
-def Log(message, level):
+def Log(message, level, cr=False):
     """
     Print message on stdout
     @param message Message to print
     @param level Logging level [1..4]
     """
+    try:
+        lastEol = Application()['log_last_eol']
+    except KeyError:
+        lastEol = None
     if (level <= 0) or (Application()['log_level'] < level):
         return
-    if (level == LOG_LEVEL_INTERACTIVE) and (Application()['log_level'] != level):
-        return
     out = sys.stderr if level == LOG_LEVEL_ERR else sys.stdout
-    print(message, file=out)
+    end = '\r' if cr and Application()['log_level'] == LOG_LEVEL_INFO else '\n'
+    if lastEol == '\r' and not cr:
+        message = '\n' + message
+    print(message, file=out, end=end)
+    Application()['log_last_eol'] = end

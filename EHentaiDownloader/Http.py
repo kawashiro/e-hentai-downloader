@@ -73,6 +73,12 @@ class Client:
             self._connect()
             self.sendRequest(uri)
 
+    def getHeader(self, name):
+        """
+        Get response header
+        """
+        return self._response.getheader(name)
+
     def getChunk(self, size=HTTP_CLIENT_CHUNK_SIZE):
         """
         Get next chunk of response data

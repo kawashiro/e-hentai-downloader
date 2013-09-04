@@ -43,7 +43,7 @@ class EHTMLParser():
         message = re.sub('<head>.*?</head>', '', message)
         message = re.sub('<[^<]+?>', '', message)
         message = HTMLParser().unescape(message).strip()
-        temporaryBan = False  # TODO: Define
+        temporaryBan = message.find('(Strike 0)') != -1
         if temporaryBan:
             raise TemporaryBanException(TemporaryBanException.MESSAGE_TEMPORARY_BAN)
         raise EHTMLParserException(template.format(message))
@@ -92,6 +92,27 @@ class EHTMLParser():
         except AttributeError:
             self._raiseParserException(EHTMLParserException.MESSAGE_IMAGE)
 
+    def _getMetadata(self):
+        """
+        Get gallery's meta info
+        """
+        parser = HTMLParser()
+        titles = re.findall('<h1 id="g[jn]">(.*?)</h1>', self.content)
+        additional = re.findall('<td class="gdt1">(.*?):?</td>.*?<td class="gdt2">(.*?):?</td>', self.content)
+        meta = {
+            'additional': {},
+            'title': {
+                'main': parser.unescape(titles[0]),
+                'jap': parser.unescape(titles[1])
+            },
+        }
+        for key, value in additional:
+            meta['additional'][key] = parser.unescape(value)
+        count, size = meta['additional']['Images'].split(' @ ')
+        meta['count'] = int(count)
+        meta['size'] = size
+        return meta
+
     def __getitem__(self, item):
         """
         Get parsed result
@@ -102,5 +123,7 @@ class EHTMLParser():
             return self._getSubpages()
         elif item == 'image':
             return self._getImage()
+        elif item == 'meta':
+            return self._getMetadata()
         else:
             raise IndexError
