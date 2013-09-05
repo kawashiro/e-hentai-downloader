@@ -18,7 +18,7 @@ class TemporaryBanException(EHTMLParserException):
     """
     Exception on temporary ban (few seconds long)
     """
-    MESSAGE_TEMPORARY_BAN = 'Temporary ban detected, parser thread paused'
+    pass
 
 
 class EHTMLParser():
@@ -45,7 +45,7 @@ class EHTMLParser():
         message = HTMLParser().unescape(message).strip()
         temporaryBan = message.find('(Strike 0)') != -1
         if temporaryBan:
-            raise TemporaryBanException(TemporaryBanException.MESSAGE_TEMPORARY_BAN)
+            raise TemporaryBanException
         raise EHTMLParserException(template.format(message))
 
     def _getSubpages(self):

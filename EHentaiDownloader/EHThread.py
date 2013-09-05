@@ -136,8 +136,7 @@ class PageNavigator(AbstractEHThread):
             self._slept = False
             self._retried = 0
             return result
-        except Html.TemporaryBanException as e:
-            print(str(e))
+        except Html.TemporaryBanException:
             Environment.Log(
                 'Temporary ban ocured, sleeping %f seconds before the next request' % FETCH_SLEEP_INTERVAL_LONG,
                 Environment.LOG_LEVEL_WARN

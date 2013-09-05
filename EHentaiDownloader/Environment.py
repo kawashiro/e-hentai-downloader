@@ -141,6 +141,7 @@ class Application:
                 navigatorThread.join()
                 raise EHThread.CommonException('Error in thread %s: %s' % (error.thread, str(error.exception)))
         # TODO: Make zipping optional or even allow user to select a custom archiver
+        # FIXME: Zip "archives" whole directory ierarchy if absolute destination path is specified
         self._zip()
         Log('Completed successfully', LOG_LEVEL_INFO)
 
