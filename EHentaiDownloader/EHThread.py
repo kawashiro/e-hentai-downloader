@@ -27,27 +27,38 @@ class ThreadTerminatedException(CommonException):
     pass
 
 
-# TODO: Too much duplicate code in each thread class. Refactor it moving duplicated parts in abstract class
-class PageNavigator(threading.Thread):
+class AbstractEHThread(threading.Thread):
     """
-    Class which represents collecting direct links to images
+    Abstract class with some common crap
     """
-    def __init__(self, queue, baseUri, destination):
+    def __init__(self, queue, name):
         """
         Initialize thread
         """
         from EHentaiDownloader import Environment
-        verbose = (Environment.Application()['log_level'] == Environment.LOG_LEVEL_DEBUG)
-        super().__init__(name='PageNavigator', verbose=verbose)
+        self._app = Environment.Application()
+        verbose = (self._app['log_level'] == Environment.LOG_LEVEL_DEBUG)
+        super().__init__(name=name, verbose=verbose)
         self._queue = queue
-        self._destination = destination
-        self._parser = Html.EHTMLParser(baseUri)
-        self._httpClient = Http.Client()
-        self._subpages = [baseUri]
-        self._pages = []
         self._slept = True
         self._stopped = False
         self._retried = 0
+
+
+class PageNavigator(AbstractEHThread):
+    """
+    Class which represents collecting direct links to images
+    """
+    def __init__(self, queue):
+        """
+        Initialize thread
+        """
+        super().__init__(queue, 'PageNavigator')
+        self._destination = self._app['destination']
+        self._subpages = [self._app['uri']]
+        self._parser = Html.EHTMLParser(self._app['uri'])
+        self._httpClient = Http.Client()
+        self._pages = []
 
     def run(self):
         """
@@ -68,11 +79,10 @@ class PageNavigator(threading.Thread):
                     for k in meta['additional'].keys():
                         Environment.Log('{0:.<20}...{1}'.format(k, meta['additional'][k]), Environment.LOG_LEVEL_INFO)
                     self._subpages = result['subpages']
-                    # FIXME: Feels like a shit -_-
-                    self._destination = '/'.join((self._destination, meta['title']['main'])).replace('//', '/')
+                    self._destination = '/'.join((self._destination.rstrip('/'), meta['title']['main']))
                     os.mkdir(self._destination)
-                    Environment.Application()['destination'] = self._destination
-                    Environment.Application()['total_images'] = meta['count']
+                    self._app['destination'] = self._destination
+                    self._app['total_images'] = meta['count']
                     Environment.Log('Found subpages: %s' % repr(self._subpages), Environment.LOG_LEVEL_DEBUG)
                 Environment.Log('Found pages: %s' % repr(result['pages']), Environment.LOG_LEVEL_DEBUG)
                 self._pages += result['pages']
@@ -91,9 +101,9 @@ class PageNavigator(threading.Thread):
             pass
         except BaseException as e:
             error = Environment.ErrorInfo(self._name, e)
-            Environment.Application().setError(error)
+            self._app.setError(error)
         finally:
-            Environment.Application().complete()
+            self._app.complete()
 
     def stop(self):
         """
@@ -132,12 +142,12 @@ class PageNavigator(threading.Thread):
             self._retried += 1
             self._slept = False
             Environment.Log('%s, retry # %d' % (str(e), self._retried), Environment.LOG_LEVEL_WARN)
-            if self._retried == Environment.Application()['retries']:
+            if self._retried == self._app['retries']:
                 raise e
         return self._fetchContent(uri, fields)
 
 
-class ImageDownloader(threading.Thread):
+class ImageDownloader(AbstractEHThread):
     """
     Image downloader thread
     """
@@ -145,44 +155,51 @@ class ImageDownloader(threading.Thread):
         """
         Initialize image download worker thread
         """
-        from EHentaiDownloader import Environment
-        verbose = (Environment.Application()['log_level'] == Environment.LOG_LEVEL_DEBUG)
-        super().__init__(name='ImageDownloader-%s' % number, verbose=verbose)
-        self._queue = queue
+        super().__init__(queue, 'ImageDownloader-%s' % number)
 
     def run(self):
         """
         Download images from queue
         """
-        from EHentaiDownloader import Environment
+        from EHentaiDownloader.Environment import ErrorInfo
         while True:
             try:
-                imageInfo = self._queue.get()
-                totalImages = Environment.Application()['total_images']
-                Environment.Log('Downloading image #%d/%d' % (imageInfo['number'], totalImages),
-                                Environment.LOG_LEVEL_INFO, True)
-                Environment.Log('from: %s; to: %s' % (imageInfo['full_uri'], imageInfo['destination']),
-                                Environment.LOG_LEVEL_DEBUG)
-                httpClient = Http.Client(imageInfo['host'], imageInfo['port'])
-                try:
-                    httpClient.sendRequest(imageInfo['uri'])
-                    contentType = httpClient.getHeader('Content-type')
-                    extension = self._getExtensionFromContentType(contentType)
-                    fileName = '{image[destination]}/{image[number]:0={padding}}.{ext}'.format(
-                        image=imageInfo, ext=extension, padding=str(totalImages).__len__())
-                    file = open(fileName, 'wb')
-                    while True:
-                        file.write(httpClient.getChunk())
-                except Http.ReadResponseException:
-                    pass
-                httpClient.close()
-                file.close()
-                self._queue.task_done()
+                self._performTask()
             except BaseException as e:
-                # TODO: Retries as in PageNavigator()
-                error = Environment.ErrorInfo(self._name, e)
-                Environment.Application().setError(error)
-                break
+                self._retried += 1
+                if self._retried == self._app['retries']:
+                    error = ErrorInfo(self._name, e)
+                    self._app.setError(error)
+                    break
+                self._performTask()
+
+    def _performTask(self):
+        """
+        Get and perform a single task
+        """
+        from EHentaiDownloader import Environment
+        imageInfo = self._queue.get()
+        totalImages = self._app['total_images']
+        Environment.Log('Downloading image #%d/%d' % (imageInfo['number'], totalImages),
+                        Environment.LOG_LEVEL_INFO, True)
+        Environment.Log('from: %s; to: %s' % (imageInfo['full_uri'], imageInfo['destination']),
+                        Environment.LOG_LEVEL_DEBUG)
+        httpClient = Http.Client(imageInfo['host'], imageInfo['port'])
+        httpClient.sendRequest(imageInfo['uri'])
+        contentType = httpClient.getHeader('Content-type')
+        extension = self._getExtensionFromContentType(contentType)
+        fileName = '{image[destination]}/{image[number]:0={padding}}.{ext}'.format(
+            image=imageInfo, ext=extension, padding=str(totalImages).__len__())
+        file = open(fileName, 'wb')
+        try:
+            while True:
+                file.write(httpClient.getChunk())
+        except Http.ReadResponseException:
+            pass
+        file.close()
+        httpClient.close()
+        self._retried = 0
+        self._queue.task_done()
 
     def _getExtensionFromContentType(self, contentType):
         """

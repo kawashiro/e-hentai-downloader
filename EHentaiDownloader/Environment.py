@@ -123,7 +123,7 @@ class Application:
             downloader = EHThread.ImageDownloader(imagesQueue, i)
             downloader.daemon = True
             downloader.start()
-        navigatorThread = EHThread.PageNavigator(imagesQueue, self['uri'], self['destination'])
+        navigatorThread = EHThread.PageNavigator(imagesQueue)
         navigatorThread.daemon = True
         navigatorThread.start()
         while not self._completed:

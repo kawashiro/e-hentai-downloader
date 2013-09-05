@@ -4,7 +4,6 @@ __author__ = 'kz'
 
 from http import client
 
-# TODO: Move some crap in config
 E_HENTAI_GALLERY_HOST = 'g.e-hentai.org'
 HTTP_CLIENT_CHUNK_SIZE = 10240
 HTTP_SCHEME = 'http://'
