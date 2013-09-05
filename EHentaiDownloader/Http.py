@@ -6,6 +6,7 @@ from http import client
 
 E_HENTAI_GALLERY_HOST = 'g.e-hentai.org'
 HTTP_CLIENT_CHUNK_SIZE = 10240
+HTTP_CLIENT_CONNECTION_TIMEOUT = 20
 HTTP_SCHEME = 'http://'
 USER_AGENT = 'Mozilla/5.0 (X11; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0'
 
@@ -43,7 +44,7 @@ class Client:
         """
         Connect to specified host
         """
-        self._connection = client.HTTPConnection(self._host, self._port)
+        self._connection = client.HTTPConnection(self._host, self._port, timeout=HTTP_CLIENT_CONNECTION_TIMEOUT)
 
     def get(self, uri):
         """
@@ -65,7 +66,6 @@ class Client:
         @param uri Request uri
         """
         try:
-            # TODO: Timeout!
             self._connection.request('GET', uri, headers=self._headers)
             self._response = self._connection.getresponse()
         except client.BadStatusLine:
