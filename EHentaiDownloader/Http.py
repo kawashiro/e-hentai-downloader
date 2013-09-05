@@ -28,12 +28,14 @@ class Client:
         'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
         'Host': E_HENTAI_GALLERY_HOST,
-        'User-Agent': USER_AGENT
+        'User-Agent': USER_AGENT # TODO: Custom user-agent
     }
 
     def __init__(self, host=E_HENTAI_GALLERY_HOST, port=None):
         """
         Init client
+        :param host: string - remote server host
+        :param port: int    - remote server port
         """
         self._host = host
         self._port = port
@@ -49,7 +51,8 @@ class Client:
     def get(self, uri):
         """
         Get content of page
-        @param uri Request uri
+        :param uri: string - request uri
+        :return:    string - decoded response
         """
         self.sendRequest(uri)
         content = b''
@@ -63,7 +66,7 @@ class Client:
     def sendRequest(self, uri):
         """
         Send prepared request to a server
-        @param uri Request uri
+        :param uri: string - request uri
         """
         try:
             self._connection.request('GET', uri, headers=self._headers)
@@ -75,13 +78,16 @@ class Client:
     def getHeader(self, name):
         """
         Get response header
+        :param name: string - header name
+        :return:     string - header value
         """
         return self._response.getheader(name)
 
     def getChunk(self, size=HTTP_CLIENT_CHUNK_SIZE):
         """
         Get next chunk of response data
-        @param size Chunk size to fetch at once
+        :param size: int    - chunk size to fetch at once
+        :return:     binary - response chunk
         """
         chunk = None
         if not self._response.closed:

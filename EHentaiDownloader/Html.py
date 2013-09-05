@@ -11,7 +11,6 @@ class EHTMLParserException(Exception):
     Parsing exception
     """
     MESSAGE_PAGES = 'Unable to fetch pages. The server answered: {0}'
-    MESSAGE_SUBPAGES = 'Unable to fetch subpages. The server answered: {0}'
     MESSAGE_IMAGE = 'Unable to parse image page. The server answered: {0}'
 
 
@@ -29,6 +28,7 @@ class EHTMLParser():
     def __init__(self, baseUri):
         """
         Init. (c) Captain Obvious
+        :param baseUri: string - gallery main page uri
         """
         self.content = ''
         self._baseUri = baseUri
@@ -37,6 +37,7 @@ class EHTMLParser():
     def _raiseParserException(self, template):
         """
         Raise parser exception
+        :param template: string - error message template
         """
         message = re.sub('[\r\n\t\s\0]+', ' ', self.content)
         message = re.sub('<head>.*?</head>', '', message)
@@ -50,6 +51,7 @@ class EHTMLParser():
     def _getSubpages(self):
         """
         Get all parsed subpages from page
+        :return: list - list of all subpages
         """
         pages = None
         try:
@@ -63,6 +65,7 @@ class EHTMLParser():
     def _getPages(self):
         """
         Links to pages on subpage
+        :return: list - list of all pages on subpage
         """
         pages = re.findall('<div class="gdtm".*?>.*?<a href="(.*?)".*?</div></div>', self.content)
         if not pages:
@@ -72,6 +75,7 @@ class EHTMLParser():
     def _getImage(self):
         """
         Get direct link to image
+        :return: dict - parsed image info
         """
         try:
             parser = HTMLParser()
@@ -89,6 +93,7 @@ class EHTMLParser():
     def _getMetadata(self):
         """
         Get gallery's meta info
+        :return: dict - gallery metadata
         """
         parser = HTMLParser()
         titles = re.findall('<h1 id="g[jn]">(.*?)</h1>', self.content)
@@ -110,6 +115,7 @@ class EHTMLParser():
     def __getitem__(self, item):
         """
         Get parsed result
+        :param item: string
         """
         if item == 'pages':
             return self._getPages()

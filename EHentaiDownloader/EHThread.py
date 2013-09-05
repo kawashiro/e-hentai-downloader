@@ -34,6 +34,8 @@ class AbstractEHThread(threading.Thread):
     def __init__(self, queue, name):
         """
         Initialize thread
+        :param queue: queue.Queue - images queue
+        :param name:  string      - thread unique name
         """
         from EHentaiDownloader import Environment
         self._app = Environment.Application()
@@ -52,6 +54,7 @@ class PageNavigator(AbstractEHThread):
     def __init__(self, queue):
         """
         Initialize thread
+        :param queue: queue.Queue - images queue
         """
         super().__init__(queue, 'PageNavigator')
         self._destination = self._app['destination']
@@ -114,6 +117,9 @@ class PageNavigator(AbstractEHThread):
     def _fetchContent(self, uri, fields):
         """
         Download a page and parse out all needed content
+        :param uri:    string - uri to fetch content from
+        :param fields: tuple  - tuple of fields to fetch labels
+        :return:       dict   - dictionary with parsed values
         """
         from EHentaiDownloader import Environment
         if self._stopped:
@@ -154,6 +160,8 @@ class ImageDownloader(AbstractEHThread):
     def __init__(self, queue, number=0):
         """
         Initialize image download worker thread
+        :param queue:  queue.Queue - images queue
+        :param number: int         - worker thread unique id
         """
         super().__init__(queue, 'ImageDownloader-%s' % number)
 
@@ -206,5 +214,6 @@ class ImageDownloader(AbstractEHThread):
         Try to get file extension according to content-type
         This crap is some kind of suitable for images only,
         but we don't need anything more
+        :return: string - corresponding file extension
         """
         return contentType.split('/')[1].lower().replace('jpeg', 'jpg')

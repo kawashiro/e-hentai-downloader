@@ -18,13 +18,14 @@ LOG_LEVEL_DEBUG = 4
 def singleton(cls):
     """
     Singleton decorator
-    @param cls
+    :param cls: class - class to decorate
     """
     instances = {}
 
     def getInstance():
         """
         Get singleton's instance
+        :return: object - instance of decorated class
         """
         if cls not in instances:
             instances[cls] = cls()
@@ -42,22 +43,23 @@ class InvalidArgumentException(Exception):
 @singleton
 class Application:
     """
-    Global environment
+    Main application instance
     """
     def __init__(self):
         """
         Init environment variables
         Should be called from main thread only!
         """
-        self._version = '0.01'
+        self._version = '0.1'
         self._storage = {}
         self._completed = False
         self._errorQueue = queue.Queue()
 
     def init(self):
         """
-        Filling environment
+        Filling environment variables, parsing command line arguments
         """
+        # FIXME: Fails on shindoshs
         parser = argparse.ArgumentParser(description='E-Hentai gallery downloader', version=self.version)
         parser.add_argument('url',
                             metavar='link',
@@ -99,12 +101,15 @@ class Application:
     def _defineLogLevel(self, val):
         """
         Get log level from input string
+        :return: int - log level
         """
         return ['none', 'err', 'warn', 'info', 'debug'].index(val.lower())
 
     def _defineUri(self, uri):
         """
         Cut host from uri
+        :param uri: string - input uri
+        :return: string - uri without host name and scheme
         """
         host = Http.HTTP_SCHEME + Http.E_HENTAI_GALLERY_HOST
         if uri.find(host) == -1:
@@ -135,6 +140,7 @@ class Application:
                 navigatorThread.stop()
                 navigatorThread.join()
                 raise EHThread.CommonException('Error in thread %s: %s' % (error.thread, str(error.exception)))
+        # TODO: Make zipping optional or even allow user to select a custom archiver
         self._zip()
         Log('Completed successfully', LOG_LEVEL_INFO)
 
@@ -161,6 +167,8 @@ class Application:
     def __setitem__(self, key, value):
         """
         Set a value to the storage
+        :param key:
+        :param value:
         """
         self._storage[key] = value
 
@@ -173,7 +181,7 @@ class Application:
     def setError(self, errorInfo):
         """
         Set thread error to environment
-        @param errorInfo
+        :param errorInfo: ErrorInfo
         """
         if type(errorInfo) != ErrorInfo:
             raise TypeError('Error info must be type of Environment.ErrorInfo')
@@ -183,6 +191,7 @@ class Application:
     def error(self):
         """
         Get error queue instance
+        :return: ErrorInfo
         """
         return self._errorQueue.get(timeout=0.1)
 
@@ -190,12 +199,13 @@ class Application:
     def version(self):
         """
         Get application version
+        :return: string - application version
         """
         return self._version
 
     def complete(self):
         """
-        Mark a thread as completed
+        Say application to complete threads management
         """
         self._completed = True
 
@@ -205,6 +215,11 @@ class ErrorInfo:
     Simple error info structure
     """
     def __init__(self, thread, exception):
+        """
+        Create ErrorInfo object
+        :param thread:    string        - thread name
+        :param exception: BaseException - raised exception
+        """
         self.thread = thread
         self.exception = exception
 
@@ -212,8 +227,9 @@ class ErrorInfo:
 def Log(message, level, cr=False):
     """
     Print message on stdout
-    @param message Message to print
-    @param level Logging level [1..4]
+    :param message: string - Message to print
+    :param level:   int    - logging level [0..4]
+    :param cr:      bool   - use CR instead of LF at the end of line
     """
     try:
         lastEol = Application()['log_last_eol']
