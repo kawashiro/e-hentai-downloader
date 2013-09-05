@@ -4,7 +4,6 @@ __author__ = 'kz'
 
 import re
 from html.parser import HTMLParser
-from EHentaiDownloader import Http
 
 
 class EHTMLParserException(Exception):
@@ -54,13 +53,10 @@ class EHTMLParser():
         """
         pages = None
         try:
-            # TODO: Simplify it
-            paginator = self.content[self.content.find('<td class="ptdd">'):self.content.rfind('<td onclick="sp(1)">')]
-            lastPage = re.findall('sp\((\d+)\)', paginator)[-1]
+            lastPage = re.findall('<td onclick="sp\((\d+)\)"><a.*?>\d+</a>', self.content)[-1]
             pages = list(self._subpageUri.format(i) for i in range(1, int(lastPage) + 1))
         except IndexError:
-            # FIXME: Fails on galleries with one subpage
-            # self._raiseParserException(EHTMLParserException.MESSAGE_SUBPAGES)
+            # Gallery can contain only one subpage (the main page) so empty result is absolutely normal
             pass
         return pages
 
@@ -68,9 +64,7 @@ class EHTMLParser():
         """
         Links to pages on subpage
         """
-        # TODO: Simplify it
-        imagesBlock = self.content[self.content.find('<div id="gdt">'):self.content.rfind('<table class="ptb"')]
-        pages = re.findall(Http.HTTP_SCHEME + Http.E_HENTAI_GALLERY_HOST + '(/s/[0-9a-f]+/\d+\-\d+)', imagesBlock)
+        pages = re.findall('<div class="gdtm".*?>.*?<a href="(.*?)".*?</div></div>', self.content)
         if not pages:
             self._raiseParserException(EHTMLParserException.MESSAGE_PAGES)
         return pages
@@ -126,4 +120,4 @@ class EHTMLParser():
         elif item == 'meta':
             return self._getMetadata()
         else:
-            raise IndexError
+            raise IndexError(item)
