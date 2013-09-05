@@ -150,12 +150,13 @@ class Application:
         Log('Creating ZIP-archive: %s' % zipfile, LOG_LEVEL_INFO)
         for cmd in cmds:
             try:
+                Log('Eecuting: %s' % ' '.join(cmd), LOG_LEVEL_DEBUG)
                 ret = subprocess.check_output(cmd)
             except subprocess.CalledProcessError as e:
                 ret = e.output
                 raise e
             finally:
-                Log('Command returned: %s' % ret.decode(), LOG_LEVEL_DEBUG)
+                Log('Command returned: %s' % (ret.decode() if ret else '<empty result>'), LOG_LEVEL_DEBUG)
 
     def __setitem__(self, key, value):
         """
