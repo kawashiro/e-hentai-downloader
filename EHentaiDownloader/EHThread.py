@@ -187,7 +187,8 @@ class ImageDownloader(AbstractEHThread):
         from EHentaiDownloader import Environment
         imageInfo = self._queue.get()
         totalImages = self._app['total_images']
-        Environment.Log('Downloading image #%d/%d' % (imageInfo['number'], totalImages),
+        percents = int(imageInfo['number'] / totalImages * 100)
+        Environment.Log('Downloading image #{0}/{1} ({2}%)'.format(imageInfo['number'], totalImages, percents),
                         Environment.LOG_LEVEL_INFO, True)
         Environment.Log('from: %s; to: %s' % (imageInfo['full_uri'], imageInfo['destination']),
                         Environment.LOG_LEVEL_DEBUG)

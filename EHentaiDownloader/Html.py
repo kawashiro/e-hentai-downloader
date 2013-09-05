@@ -106,7 +106,7 @@ class EHTMLParser():
             },
         }
         for key, value in additional:
-            meta['additional'][key] = parser.unescape(value)
+            meta['additional'][key] = re.sub('<[^<]+?>', '', parser.unescape(value))
         count, size = meta['additional']['Images'].split(' @ ')
         meta['count'] = int(count)
         meta['size'] = size
