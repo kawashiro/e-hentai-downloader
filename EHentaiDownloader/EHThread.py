@@ -39,8 +39,7 @@ class AbstractEHThread(threading.Thread):
         """
         from EHentaiDownloader import Environment
         self._app = Environment.Application()
-        verbose = (self._app['log_level'] == Environment.LOG_LEVEL_DEBUG)
-        super().__init__(name=name, verbose=verbose)
+        super().__init__(name=name)
         self._queue = queue
         self._slept = True
         self._stopped = False
@@ -61,6 +60,7 @@ class PageNavigator(AbstractEHThread):
         self._subpages = [self._app['uri']]
         self._parser = Html.EHTMLParser(self._app['uri'])
         self._httpClient = Http.Client()
+        self._httpClient.changeUserAgent(self._app['user_agent'])
         self._pages = []
 
     def run(self):
@@ -78,11 +78,14 @@ class PageNavigator(AbstractEHThread):
                 result = self._fetchContent(subpage, fetchFields)
                 if firstIteration:
                     meta = result['meta']
+                    if not meta['title']['main']:
+                        raise CommonException('Gallery has empty title or server response was incorrect. Aborted.')
                     Environment.Log('Title: {0[main]} / {0[jap]}'.format(meta['title']), Environment.LOG_LEVEL_INFO)
                     for k in meta['additional'].keys():
                         Environment.Log('{0:.<20}...{1}'.format(k, meta['additional'][k]), Environment.LOG_LEVEL_INFO)
                     self._subpages = result['subpages']
-                    self._destination = '/'.join((self._destination.rstrip('/'), meta['title']['main']))
+                    self._destination = '/'.join((self._destination.rstrip('/'), meta['title']['main']
+                        .replace('/', '_')))
                     os.mkdir(self._destination)
                     self._app['destination'] = self._destination
                     self._app['total_images'] = meta['count']
@@ -190,9 +193,10 @@ class ImageDownloader(AbstractEHThread):
         percents = int(imageInfo['number'] / totalImages * 100)
         Environment.Log('Downloading image #{0}/{1} ({2}%)'.format(imageInfo['number'], totalImages, percents),
                         Environment.LOG_LEVEL_INFO, True)
-        Environment.Log('from: %s; to: %s' % (imageInfo['full_uri'], imageInfo['destination']),
+        Environment.Log('Thread: %s; from: %s; to: %s' % (self._name, imageInfo['full_uri'], imageInfo['destination']),
                         Environment.LOG_LEVEL_DEBUG)
         httpClient = Http.Client(imageInfo['host'], imageInfo['port'])
+        httpClient.changeUserAgent(self._app['user_agent'])
         httpClient.sendRequest(imageInfo['uri'])
         contentType = httpClient.getHeader('Content-type')
         extension = self._getExtensionFromContentType(contentType)

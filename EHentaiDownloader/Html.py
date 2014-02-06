@@ -12,6 +12,7 @@ class EHTMLParserException(Exception):
     """
     MESSAGE_PAGES = 'Unable to fetch pages. The server answered: {0}'
     MESSAGE_IMAGE = 'Unable to parse image page. The server answered: {0}'
+    MESSAGE_BANDWIDTH_EXCEEDED = 'Bandwidth exceeded'
 
 
 class TemporaryBanException(EHTMLParserException):
@@ -25,6 +26,8 @@ class EHTMLParser():
     """
     Parser for e-hentai pages
     """
+    BANDWIDTH_EXCEEDED_STUB = 'http://ehgt.org/g/509s.gif'
+
     def __init__(self, baseUri):
         """
         Init. (c) Captain Obvious
@@ -81,12 +84,15 @@ class EHTMLParser():
             parser = HTMLParser()
             match = re.search('<img id="img" src="(?P<full>http://(?P<host>[^"/:]+)(:(?P<port>\d+))?(?P<uri>[^"]*))"',
                               self.content)
-            return {
+            image = {
                 'host': match.group('host'),
                 'port': match.group('port'),
                 'uri':  parser.unescape(match.group('uri')),
                 'full_uri':  parser.unescape(match.group('full')),
             }
+            if image['full_uri'] == self.BANDWIDTH_EXCEEDED_STUB:
+                raise EHTMLParserException(EHTMLParserException.MESSAGE_BANDWIDTH_EXCEEDED)
+            return image
         except AttributeError:
             self._raiseParserException(EHTMLParserException.MESSAGE_IMAGE)
 

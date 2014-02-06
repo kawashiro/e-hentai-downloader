@@ -28,7 +28,7 @@ class Client:
         'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
         'Host': E_HENTAI_GALLERY_HOST,
-        'User-Agent': USER_AGENT # TODO: Custom user-agent
+        'User-Agent': USER_AGENT
     }
 
     def __init__(self, host=E_HENTAI_GALLERY_HOST, port=None):
@@ -101,3 +101,18 @@ class Client:
         Close connection
         """
         self._connection.close()
+
+    def setHeader(self, header, value):
+        """
+        Set value to header specified
+        :param header: string - Header name
+        :param value: string  - Value
+        """
+        self._headers[header] = value
+
+    def changeUserAgent(self, userAgent):
+        """
+        Use new user-agent
+        :param userAgent: string - User-Agent
+        """
+        self.setHeader('User-Agent', userAgent)

@@ -3,8 +3,6 @@
 
 __author__ = 'kz'
 
-# TODO: gettext or do something with crappy text constants
-
 from EHentaiDownloader import Environment
 import sys
 

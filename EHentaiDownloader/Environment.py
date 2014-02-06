@@ -6,6 +6,7 @@ import sys
 import subprocess
 import queue
 import argparse
+import EHentaiDownloader
 from EHentaiDownloader import EHThread, Http
 
 LOG_LEVEL_NONE = 0
@@ -50,7 +51,6 @@ class Application:
         Init environment variables
         Should be called from main thread only!
         """
-        self._version = '0.1'
         self._storage = {}
         self._completed = False
         self._errorQueue = queue.Queue()
@@ -59,8 +59,7 @@ class Application:
         """
         Filling environment variables, parsing command line arguments
         """
-        # FIXME: Fails on shindoshs
-        parser = argparse.ArgumentParser(description='E-Hentai gallery downloader', version=self.version)
+        parser = argparse.ArgumentParser(description='E-Hentai gallery downloader v.%s' % self.version)
         parser.add_argument('url',
                             metavar='link',
                             help='Link to gallery main page'),
@@ -68,7 +67,7 @@ class Application:
                             metavar='save_path',
                             help='Path to save downloaded gallery to'),
         parser.add_argument('-a', '--user-agent',
-                            metavar='User agent',
+                            metavar='agent',
                             help='Specify new fake user agent',
                             default=Http.USER_AGENT),
         parser.add_argument('-t', '--threads', type=int,
@@ -83,6 +82,10 @@ class Application:
                             metavar='level',
                             help='none, err, warn, info, debug',
                             default='info')
+        parser.add_argument('-d', '--do-not-zip',
+                            action='store_true',
+                            help='Do not compress output directory, leave all files "as is"',
+                            default=False)
         args = parser.parse_args()
         try:
             self._storage = {
@@ -92,7 +95,8 @@ class Application:
                 'destination': args.destination,
                 'log_level':   self._defineLogLevel(args.log_level),
                 'retries':     args.retries,
-                'full_uri':    args.url
+                'full_uri':    args.url,
+                'do_not_zip':  args.do_not_zip
             }
         except ValueError:
             parser.print_usage()
@@ -123,6 +127,7 @@ class Application:
         Log('Source:      %s' % self['full_uri'], LOG_LEVEL_INFO)
         Log('Destination: %s' % self['destination'], LOG_LEVEL_INFO)
         Log('Fetching gallery info...', LOG_LEVEL_INFO)
+
         imagesQueue = queue.Queue()
         for i in range(self['threads']):
             downloader = EHThread.ImageDownloader(imagesQueue, i)
@@ -131,6 +136,7 @@ class Application:
         navigatorThread = EHThread.PageNavigator(imagesQueue)
         navigatorThread.daemon = True
         navigatorThread.start()
+
         while not self._completed:
             try:
                 error = self.error
@@ -140,9 +146,10 @@ class Application:
                 navigatorThread.stop()
                 navigatorThread.join()
                 raise EHThread.CommonException('Error in thread %s: %s' % (error.thread, str(error.exception)))
-        # TODO: Make zipping optional or even allow user to select a custom archiver
-        # FIXME: Zip "archives" whole directory ierarchy if absolute destination path is specified
-        self._zip()
+
+        if not self['do_not_zip']:
+            self._zip()
+
         Log('Completed successfully', LOG_LEVEL_INFO)
 
     def _zip(self):
@@ -151,7 +158,7 @@ class Application:
         """
         zipfile = '%s.zip' % self['destination']
         cmds = [
-            ['zip', '-r', zipfile, self['destination']],
+            ['zip', '-jr', zipfile, self['destination']],
             ['rm',  '-r', self['destination']]
         ]
         Log('Creating ZIP-archive: %s' % zipfile, LOG_LEVEL_INFO)
@@ -202,7 +209,7 @@ class Application:
         Get application version
         :return: string - application version
         """
-        return self._version
+        return EHentaiDownloader.__version__
 
     def complete(self):
         """
