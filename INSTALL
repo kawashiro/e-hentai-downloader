@@ -1,0 +1,5 @@
+Be sure to install all dependencies required to run
+
+~ # git clone https://github.com/kawashiro/e-hentai-downloader
+~ # cd ./e-hentai-downloader/
+~ # python3 ./setup.py install -O2
